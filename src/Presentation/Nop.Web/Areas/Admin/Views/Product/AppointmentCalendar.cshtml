@@ -1,0 +1,362 @@
+@model ProductModel
+@{
+    //page title
+    ViewBag.Title = T("Admin.Catalog.Products.Calendar").Text;
+    //active menu item (system name)
+    Html.SetActiveMenuItemSystemName("Products");
+}
+<form asp-controller="Product" asp-action="Edit" method="post" id="product-form">
+    <div class="content-header clearfix">
+        <h1 class="pull-left">
+            @T("Admin.Catalog.Products.Calendar") - @Model.Name
+            <small>
+                <i class="fa fa-arrow-circle-left"></i>
+                <a asp-action="List">@T("Admin.Catalog.Products.BackToList")</a>
+            </small>
+        </h1>
+        <div class="pull-right">
+            <a asp-action="AppointmentSchedule" asp-route-id="@Model.Id" class="btn bg-blue">
+                <i class="fa fa-edit"></i>
+                @T("Admin.Common.Schedule")
+            </a>
+            <button type="button" onclick="javascript:OpenWindow('@Url.RouteUrl("Product", new {SeName = Model.SeName})', 800, 600, true); return false;" class="btn bg-purple">
+                <i class="fa fa-eye"></i>
+                @T("Admin.Common.Preview")
+            </button>
+        </div>
+    </div>
+    <div class="content">
+        <div id="booking-calendar">
+            <div class="column-left">
+                <div id="nav"></div>
+            </div>
+            <div class="column-main">
+                <div id="calendar"></div>
+            </div>
+        </div>
+        <div id="booking-form" class="panel-body">
+            <div class="form-group">
+                <div class="col-sm-5">
+                    @T("Product.AppointmentCalendar.TimeSlot")
+                </div>
+                <div class="col-sm-7">
+                    <div class="form-text-row" id="fTimeSlot"></div>
+                </div>
+            </div>
+            <div class="form-group">
+                <div class="col-sm-5">
+                    @T("Product.AppointmentCalendar.Status")
+                </div>
+                <div class="col-sm-7">
+                    <div class="form-text-row" id="fStatus"></div>
+                </div>
+            </div>
+            <div class="form-group">
+                <div class="col-sm-5">
+                    @T("Product.AppointmentCalendar.CustomerEmail")
+                </div>
+                <div class="col-sm-7">
+                    <div class="form-text-row" id="fCustomerEmail"></div>
+                </div>
+            </div>
+            <div class="form-group">
+                <div class="col-sm-5">
+                    @T("Product.AppointmentCalendar.CustomerFullName")
+                </div>
+                <div class="col-sm-7">
+                    <div class="form-text-row" id="fCustomerFullName"></div>
+                </div>
+            </div>
+            <div class="form-group">
+                <div class="col-sm-5">
+                    @T("Product.AppointmentCalendar.Notes")
+                </div>
+                <div class="col-sm-7">
+                    <textarea id="txtNotes" name="Notes" disabled></textarea>
+                </div>
+            </div>
+            <input type="hidden" id="appointmentId" />
+            <div class="form-group">
+                <div class="col-sm-7 col-sm-offset-5">
+                    <button type="submit" name="btnConfirmAppointment" id="btnConfirmAppointment" class="btn btn-primary" style="margin-right: 3px;">
+                        @T("Admin.AppointmentEdit.Confirm")
+                    </button>
+                    <button type="submit" name="btnCancelAppointment" id="btnCancelAppointment" class="btn bg-red" style="margin-right: 3px;">
+                        @T("Admin.AppointmentEdit.Cancel")
+                    </button>
+                    <button type="submit" name="btnDeleteAppointment" id="btnDeleteAppointment" class="btn bg-red" style="margin-right: 3px;">
+                        @T("Admin.AppointmentEdit.Delete")
+                    </button>
+                    <nop-action-confirmation asp-button-id="btnDeleteAppointment" />
+                    <button type="submit" name="btnBackToCalendar" id="btnBackToCalendar" class="btn bg-teal">
+                        @T("Product.BookTime.AppointmentUpdate.BackToCalendar")
+                    </button>
+                </div>
+            </div>
+        </div>
+        <div class="form-group">
+            <div class="col-sm-12" id="rMessage">
+            </div>
+            <div class="col-sm-12" id="eMessage">
+            </div>
+        </div>
+    </div>
+</form>
+
+<script type="text/javascript">
+    var nav = new DayPilot.Navigator("nav");
+    nav.selectMode = "week";
+    nav.showMonths = 2;
+    nav.skipMonths = 1;
+    nav.onTimeRangeSelected = function (args) {
+        loadEvents(args.start.firstDayOfWeek(), args.start.addDays(7));
+    };
+    nav.init();
+
+    var calendar = new DayPilot.Calendar("calendar");
+    calendar.viewType = "Week";
+    calendar.timeRangeSelectedHandling = "Disabled";
+    calendar.dayBeginsHour = @Model.ProductScheduleModel.BusinessBeginsHour;
+    calendar.dayEndsHour = @Model.ProductScheduleModel.BusinessEndsHour;
+
+    calendar.onEventMoved = function (args) {
+        $.post("backend_move.php", JSON.stringify(args), function (data) {
+            calendar.message(data.message);
+        });
+    };
+
+    calendar.onEventResized = function (args) {
+        $.post("backend_move.php", JSON.stringify(args), function (data) {
+            calendar.message(data.message);
+        });
+    };
+
+    calendar.onBeforeEventRender = function (args) {
+        if (!args.data.tags) {
+            return;
+        }
+        switch (args.data.tags.status) {
+            case "Free":
+                args.data.barColor = "green";
+                break;
+            case "Waiting":
+                args.data.barColor = "orange";
+                args.data.toolTip = "Click to show detail";
+                break;
+            case "Confirmed":
+                args.data.barColor = "#f41616";  // red
+                args.data.toolTip = "Click to show detail";
+                break;
+        }
+    };
+
+    calendar.onEventClick = function (args) {
+        var params = {
+            id: args.e.id(),
+        };
+
+        $.ajax({
+            url: "@Url.Action("AppointmentEdit", "Product")",
+            type: "get",
+            data: params,
+            cache: false
+        })
+        .done(function (response) {
+            console.log("response =", response);
+            DisplaySelectedSlot(response);
+        })
+        .fail(function (xhr, ajaxOptions, thrownError) {
+            // Error
+            DisplayError(xhr, thrownError);
+        });
+    };
+
+    calendar.init();
+
+    loadEvents();
+
+    function loadEvents(day) {
+        var start = nav.visibleStart();
+        var params = {
+            start: start.toString(),
+            end: nav.visibleEnd().toString(),
+            resourceId: @Model.Id
+        };
+
+        addAntiForgeryToken(params);
+        console.log(params);
+        $.ajax({
+            url: "@Url.Action("AppointmentList", "Product")",
+            type: "post",
+            data: params,
+            cache: false,
+        })
+        .done(function (response) {
+            if (day) {
+                calendar.startDate = day;
+            }
+            calendar.events.list = response;
+            calendar.update();
+
+            nav.events.list = response;
+            nav.update();
+        })
+        .fail(function (xhr, ajaxOptions, thrownError) {
+            // Error
+            DisplayError(xhr, thrownError);
+        });
+    }
+
+</script>
+
+<script type="text/javascript">
+    $(document).ready(function () {
+
+        ClearSelectedSlot();
+
+        $("#btnBackToCalendar").click(function () {
+            ClearSelectedSlot();
+            loadEvents();
+            return false;
+        });
+
+        $("#btnConfirmAppointment").click(function () {
+            var params = {
+                id: $("#appointmentId").val(),
+            };
+            addAntiForgeryToken(params);
+            console.log(params);
+            $.ajax({
+                url: "@Url.Action("AppointmentConfirm", "Product")",
+                type: "post",
+                datatype: "json",
+                data: params,
+                cache: false
+            })
+            .done(function (response) {
+                console.log("response=", response);
+                DisplaySelectedSlot(response);
+            })
+            .fail(function (xhr, ajaxOptions, thrownError) {
+                // Error
+                DisplayError(xhr, thrownError);
+            });
+
+            return false;
+        });
+
+        $("#btnCancelAppointment").click(function () {
+            var params = {
+                id: $("#appointmentId").val(),
+            };
+            addAntiForgeryToken(params);
+            console.log(params);
+            $.ajax({
+                url: "@Url.Action("AppointmentCancel", "Product")",
+                type: "post",
+                datatype: "json",
+                data: params,
+                cache: false
+            })
+            .done(function (response) {
+                console.log("response=", response);
+                DisplaySelectedSlot(response);
+            })
+            .fail(function (xhr, ajaxOptions, thrownError) {
+                // Error
+                DisplayError(xhr, thrownError);
+            });
+
+            return false;
+        });
+
+        $("#btnDeleteAppointment").click(function () {
+            var params = {
+                id: $("#appointmentId").val(),
+            };
+            addAntiForgeryToken(params);
+            console.log(params);
+            $.ajax({
+                url: "@Url.Action("AppointmentDelete", "Product")",
+                type: "post",
+                datatype: "json",
+                data: params,
+                cache: false
+            })
+            .done(function (response) {
+                console.log("response=", response);
+                DisplayDeletedSlot(response);
+            })
+            .fail(function (xhr, ajaxOptions, thrownError) {
+                // Error
+                DisplayError(xhr, thrownError);
+            });
+
+            return false;
+        });
+    });
+
+    function DisplayDeletedSlot(response) {
+        $("#booking-calendar").hide();
+        $("#booking-form").show();
+        if (response.status) {
+            $("#fTimeSlot").text("N/A");
+            $("#fStatus").text("N/A");
+        }
+        $("#btnDeleteAppointment").hide();
+        $("#rMessage").text(response.message);
+    }
+
+    function DisplaySelectedSlot(response) {
+        $("#booking-calendar").hide();
+        $("#booking-form").show();
+        if (response.status) {
+            $("#fTimeSlot").text(response.data.TimeSlot);
+            $("#appointmentId").val(response.data.Id);
+            $("#fCustomerEmail").text(response.data.CustomerEmail);
+            $("#fCustomerFullName").text(response.data.CustomerFullName);
+            $("#txtNotes").val(response.data.Notes);
+            switch (response.data.Status) {
+                case 0:
+                    $("#fStatus").text("Free");
+                    $("#btnConfirmAppointment").hide();
+                    $("#btnCancelAppointment").hide();
+                    $("#btnDeleteAppointment").show();
+                    break;
+                case 1:
+                    $("#fStatus").text("Waiting for confirmation");
+                    $("#btnConfirmAppointment").show();
+                    $("#btnCancelAppointment").show();
+                    $("#btnDeleteAppointment").hide();
+                    break;
+                case 2:
+                    $("#fStatus").text("Confirmed");
+                    $("#btnConfirmAppointment").hide();
+                    $("#btnCancelAppointment").show();
+                    $("#btnDeleteAppointment").hide();
+                    break;
+                default:
+                    break;
+            }
+        }
+        if (response.message) {
+            $("#rMessage").text(response.message);
+        }
+        else {
+            $("#rMessage").text("");
+        }
+    }
+
+    function ClearSelectedSlot() {
+        $("#booking-calendar").show();
+        $("#booking-form").hide();
+        $("#appointmentId").val("");
+        $("#rMessage").text("");
+        $("#eMessage").text("");
+    }
+
+    function DisplayError(response, thrownError) {
+        $("#eMessage").text(thrownError + "\r\n" + response.status + "\r\n" + response.statusText);
+    }
+
+</script>

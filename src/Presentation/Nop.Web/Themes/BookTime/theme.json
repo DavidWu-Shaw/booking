@@ -1,0 +1,7 @@
+﻿{
+  "SystemName": "BookTime",
+  "FriendlyName": "Book time",
+  "SupportRTL": true,
+  "PreviewImageUrl": "~/Themes/BookTime/preview.jpg",
+  "PreviewText": "The BookTime site theme"
+}

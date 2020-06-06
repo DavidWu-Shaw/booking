@@ -1,0 +1,50 @@
+﻿@model DashboardModel
+@inject IPermissionService permissionService
+@using Nop.Services.Security
+@{
+    Html.AppendCssFileParts("~/lib/ionicons/css/ionicons-2.0.1.min.css");
+
+    //page title
+    ViewBag.Title = T("Admin.Dashboard").Text;
+
+    var canManageCustomers = permissionService.Authorize(StandardPermissionProvider.ManageCustomers);
+    var canManageProducts = permissionService.Authorize(StandardPermissionProvider.ManageProducts);
+}
+<nop-antiforgery-token />
+<div class="content-header">
+    <h1>
+        @T("Admin.Dashboard")
+    </h1>
+</div>
+<div class="content">
+    <div class="row">
+        <div class="col-md-12">
+            @await Component.InvokeAsync("AdminWidget", new { widgetZone = AdminWidgetZones.DashboardTop })
+            @if (!Model.IsLoggedInAsVendor)
+            {
+                <div class="row">
+                    <div class="col-md-12">
+                        @await Component.InvokeAsync("NopCommerceNews")
+                    </div>
+                </div>
+            }
+            @await Component.InvokeAsync("AdminWidget", new { widgetZone = AdminWidgetZones.DashboardNewsAfter })
+            @await Component.InvokeAsync("AdminWidget", new { widgetZone = AdminWidgetZones.DashboardCustomerorderchartsAfter })
+            @await Component.InvokeAsync("AdminWidget", new { widgetZone = AdminWidgetZones.DashboardOrderreportsAfter })
+            @if (!Model.IsLoggedInAsVendor && canManageProducts)
+            {
+                <div class="row">
+                    <div class="col-md-4">
+                        @if (canManageProducts)
+                        {
+                            @await Html.PartialAsync("_PopularSearchTermsReport", Model.PopularSearchTerms)
+                        }
+                    </div>
+                </div>
+            }
+            @await Component.InvokeAsync("AdminWidget", new { widgetZone = AdminWidgetZones.DashboardLatestordersSearchtermsAfter })
+            @await Component.InvokeAsync("AdminWidget", new { widgetZone = AdminWidgetZones.DashboardBottom })
+        </div>
+    </div>
+</div>
+<nop-alert asp-alert-id="loadCustomerStatisticsAlert" asp-alert-message="@T("Admin.Reports.Customers.CustomerStatistics.Alert.FailedLoad")" />

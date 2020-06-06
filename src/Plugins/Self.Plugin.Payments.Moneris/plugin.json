@@ -1,0 +1,11 @@
+﻿{
+  "Group": "Payment methods",
+  "FriendlyName": "Credit Card Moneris",
+  "SystemName": "Payments.Moneris",
+  "Version": "1.49",
+  "SupportedVersions": [ "4.20" ],
+  "Author": "David",
+  "DisplayOrder": 1,
+  "FileName": "Self.Plugin.Payments.Moneris.dll",
+  "Description": "This plugin enables credit card payment using Moneris API"
+}

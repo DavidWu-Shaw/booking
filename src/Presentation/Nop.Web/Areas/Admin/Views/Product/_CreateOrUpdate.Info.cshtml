@@ -1,0 +1,277 @@
+﻿@model ProductModel
+
+@inject IStoreService storeService
+@inject IProductTagService productTagService
+
+@using Nop.Core.Domain.Catalog;
+@using Nop.Services.Catalog;
+@using System.Text;
+@using Nop.Services
+@using Nop.Services.Stores
+
+@{
+    var stores = storeService.GetAllStores();
+
+    //resources for product tags input
+    Html.AppendCssFileParts("~/lib/tagEditor/jquery.tag-editor.css");
+    Html.AppendScriptParts("~/lib/tagEditor/jquery.tag-editor.min.js");
+    Html.AppendScriptParts("~/lib/tagEditor/jquery.caret.min.js");
+}
+
+<script>
+    $(document).ready(function() {
+        @if (!Model.IsLoggedInAsVendor)
+        {
+            <text>$("#@Html.IdFor(model => model.ShowOnHomepage)").click(toggleShowOnHomepage);</text>
+        }
+        $("#@Html.IdFor(model => model.MarkAsNew)").click(toggleMarkAsNew);
+
+        @if (!Model.IsLoggedInAsVendor)
+        {
+            <text>toggleShowOnHomepage();</text>
+        }
+        toggleProductType();
+        toggleRequireOtherProducts();
+        toggleMarkAsNew();
+    });
+
+    function toggleShowOnHomepage() {
+        if ($('#@Html.IdFor(model => model.ShowOnHomepage)').is(':checked')) {
+            $('#pnlDisplayOrder').show();
+        } else {
+            $('#pnlDisplayOrder').hide();
+        }
+    }
+
+    function toggleMarkAsNew() {
+        if ($('#@Html.IdFor(model => model.MarkAsNew)').is(':checked')) {
+            $('#pnlMarkAsNewStartDateTimeUtc').show();
+            $('#pnlMarkAsNewEndDateTimeUtc').show();
+        } else {
+            $('#pnlMarkAsNewStartDateTimeUtc').hide();
+            $('#pnlMarkAsNewEndDateTimeUtc').hide();
+        }
+    }
+
+    @{
+        //TODO move to Model
+        var productTags = productTagService.GetAllProductTags();
+        var productTagsSb = new StringBuilder();
+        productTagsSb.Append("var initialProductTags = [");
+        for (var i = 0; i < productTags.Count; i++)
+        {
+            var tag = productTags[i];
+            productTagsSb.Append("'");
+            productTagsSb.Append(JavaScriptEncoder.Default.Encode(tag.Name));
+            productTagsSb.Append("'");
+            if (i != productTags.Count - 1)
+            {
+                productTagsSb.Append(",");
+            }
+        }
+        productTagsSb.Append("]");
+    }
+
+    //tags
+    $(document).ready(function() {
+        @Html.Raw(productTagsSb.ToString())
+        $("#@Html.IdFor(model => model.ProductTags)").tagEditor({
+            autocomplete: {
+                delay: 0,
+                position: { collision: 'flip' },
+                source: initialProductTags
+            },
+            delimiter: ',',
+            placeholder: '@T("Admin.Catalog.Products.Fields.ProductTags.Placeholder")'
+        });
+    });
+</script>
+
+<div class="panel-body">
+    @(Html.LocalizedEditor<ProductModel, ProductLocalizedModel>
+            ("product-info-localized",
+                @<div>
+                                                                        <div class="form-group">
+                                                                            <div class="col-md-3">
+                                                                                <nop-label asp-for="@Model.Locales[item].Name" />
+                                                                            </div>
+                                                                            <div class="col-md-9">
+                                                                                <nop-editor asp-for="@Model.Locales[item].Name" />
+                                                                                <span asp-validation-for="@Model.Locales[item].Name"></span>
+                                                                            </div>
+                                                                        </div>
+                                                                        <div class="form-group">
+                                                                            <div class="col-md-3">
+                                                                                <nop-label asp-for="@Model.Locales[item].ShortDescription" />
+                                                                            </div>
+                                                                            <div class="col-md-9">
+                                                                                <nop-textarea asp-for="@Model.Locales[item].ShortDescription" />
+                                                                                <span asp-validation-for="@Model.Locales[item].ShortDescription"></span>
+                                                                            </div>
+                                                                        </div>
+                                                                        <div class="form-group">
+                                                                            <div class="col-md-3">
+                                                                                <nop-label asp-for="@Model.Locales[item].FullDescription" />
+                                                                            </div>
+                                                                            <div class="col-md-9">
+                                                                                <nop-editor asp-for="@Model.Locales[item].FullDescription" asp-template="RichEditor" />
+                                                                                <span asp-validation-for="@Model.Locales[item].FullDescription"></span>
+                                                                            </div>
+                                                                        </div>
+
+                                                                        <input type="hidden" asp-for="@Model.Locales[item].LanguageId" />
+                                                                    </div>,
+                @<div>
+                    <div class="form-group">
+                        <div class="col-md-3">
+                            <nop-label asp-for="Name" />
+                        </div>
+                        <div class="col-md-9">
+                            <nop-editor asp-for="Name" asp-required="true" />
+                            <span asp-validation-for="Name"></span>
+                        </div>
+                    </div>
+                    <div class="form-group">
+                        <div class="col-md-3">
+                            <nop-label asp-for="ShortDescription" />
+                        </div>
+                        <div class="col-md-9">
+                            <nop-textarea asp-for="ShortDescription" />
+                            <span asp-validation-for="ShortDescription"></span>
+                        </div>
+                    </div>
+                    <div class="form-group">
+                        <div class="col-md-3">
+                            <nop-label asp-for="FullDescription" />
+                        </div>
+                        <div class="col-md-9">
+                            <nop-editor asp-for="FullDescription" asp-template="RichEditor" />
+                            <span asp-validation-for="FullDescription"></span>
+                        </div>
+                    </div>
+                </div>
+            ))
+    <div class="form-group">
+        <div class="col-md-3">
+            <nop-label asp-for="SelectedCategoryIds" />
+        </div>
+        <div class="col-md-9">
+            <nop-select asp-for="SelectedCategoryIds" asp-items="Model.AvailableCategories" asp-multiple="true" />
+            <script>
+                                $(document).ready(function() {
+                                    var categoryIdsInput = $('#@Html.IdFor(model => model.SelectedCategoryIds)').data("kendoMultiSelect");
+                                    categoryIdsInput.setOptions({
+                                        autoClose: false,
+                                        filter: "contains"
+                                    });
+
+                                    @if (Model.AvailableCategories.Count == 0)
+                            {
+                                <text>
+                                    categoryIdsInput.setOptions({
+                                        enable: false,
+                                        placeholder: '@T("Admin.Catalog.Products.Fields.Categories.NoCategoriesAvailable")'
+                                    });
+                                    categoryIdsInput._placeholder();
+                                    categoryIdsInput._enable();
+                                    </text>
+                            }
+                                });
+            </script>
+        </div>
+    </div>
+    <div class="form-group">
+        <div class="col-md-3">
+            <nop-label asp-for="Published" />
+        </div>
+        <div class="col-md-9">
+            <nop-editor asp-for="Published" />
+            <span asp-validation-for="Published"></span>
+        </div>
+    </div>
+    <div class="form-group">
+        <div class="col-md-3">
+            <nop-label asp-for="ProductTags" />
+        </div>
+        <div class="col-md-9">
+            <nop-editor asp-for="ProductTags" />
+            <span asp-validation-for="ProductTags"></span>
+        </div>
+    </div>
+    <div class="form-group" @(Model.IsLoggedInAsVendor ? Html.Raw("style='display: none;'") : null)>
+        <div class="col-md-3">
+            <nop-label asp-for="ShowOnHomepage" />
+        </div>
+        <div class="col-md-9">
+            <nop-editor asp-for="ShowOnHomepage" />
+            <span asp-validation-for="ShowOnHomepage"></span>
+        </div>
+    </div>
+    <nop-nested-setting asp-for="ShowOnHomepage">
+        <div class="form-group" id="pnlDisplayOrder" @(Model.IsLoggedInAsVendor ? Html.Raw("style='display: none;'") : null)>
+            <div class="col-md-3">
+                <nop-label asp-for="DisplayOrder" />
+            </div>
+            <div class="col-md-9">
+                <nop-editor asp-for="DisplayOrder" />
+                <span asp-validation-for="DisplayOrder"></span>
+            </div>
+        </div>
+    </nop-nested-setting>
+    <div class="form-group" @(Model.IsLoggedInAsVendor ? Html.Raw("style='display: none;'") : null)>
+        <div class="col-md-3">
+            <nop-label asp-for="VendorId" />
+        </div>
+        <div class="col-md-9">
+            <nop-select asp-for="VendorId" asp-items="Model.AvailableVendors" />
+            <span asp-validation-for="VendorId"></span>
+        </div>
+    </div>
+    <div class="form-group">
+        <div class="col-md-3">
+            <nop-label asp-for="AllowCustomerReviews" />
+        </div>
+        <div class="col-md-9">
+            <nop-editor asp-for="AllowCustomerReviews" />
+            <span asp-validation-for="AllowCustomerReviews"></span>
+        </div>
+    </div>
+    <div class="form-group advanced-setting">
+        <div class="col-md-3">
+            <nop-label asp-for="MarkAsNew" />
+        </div>
+        <div class="col-md-9">
+            <nop-editor asp-for="MarkAsNew" />
+            <span asp-validation-for="MarkAsNew"></span>
+        </div>
+    </div>
+    <nop-nested-setting asp-for="MarkAsNew">
+        <div class="form-group advanced-setting" id="pnlMarkAsNewStartDateTimeUtc">
+            <div class="col-md-3">
+                <nop-label asp-for="MarkAsNewStartDateTimeUtc" />
+            </div>
+            <div class="col-md-9">
+                <nop-editor asp-for="MarkAsNewStartDateTimeUtc" />
+                <span asp-validation-for="MarkAsNewStartDateTimeUtc"></span>
+            </div>
+        </div>
+        <div class="form-group advanced-setting" id="pnlMarkAsNewEndDateTimeUtc">
+            <div class="col-md-3">
+                <nop-label asp-for="MarkAsNewEndDateTimeUtc" />
+            </div>
+            <div class="col-md-9">
+                <nop-editor asp-for="MarkAsNewEndDateTimeUtc" />
+                <span asp-validation-for="MarkAsNewEndDateTimeUtc"></span>
+            </div>
+        </div>
+    </nop-nested-setting>
+    <div class="form-group">
+        <div class="col-md-3">
+            <nop-label asp-for="AdminComment" />
+        </div>
+        <div class="col-md-9">
+            <nop-textarea asp-for="AdminComment" />
+            <span asp-validation-for="AdminComment"></span>
+        </div>
+    </div>
+</div>

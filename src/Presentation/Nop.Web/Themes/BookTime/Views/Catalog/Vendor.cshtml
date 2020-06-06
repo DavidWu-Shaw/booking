@@ -1,0 +1,29 @@
+﻿@model VendorModel
+@using Nop.Core.Domain.Seo
+@inject Nop.Core.IWebHelper webHelper
+@inject SeoSettings seoSettings
+@{
+    Layout = "_ColumnsOne";
+
+    //title
+    Html.AddTitleParts(!string.IsNullOrEmpty(Model.MetaTitle) ? Model.MetaTitle : Model.Name);
+    //meta
+    Html.AddMetaDescriptionParts(Model.MetaDescription);
+    Html.AddMetaKeywordParts(Model.MetaKeywords);
+    //page class
+    Html.AppendPageCssClassParts("html-vendor-page");
+
+    if (seoSettings.CanonicalUrlsEnabled)
+    {
+        var vendorUrl = Url.RouteUrl("Vendor", new { SeName = Model.SeName }, webHelper.CurrentRequestProtocol).ToLowerInvariant();
+        Html.AddCanonicalUrlParts(vendorUrl, seoSettings.QueryStringInCanonicalUrlsEnabled);
+    }
+}
+<div class="page vendor-page">
+    <div class="page-title">
+        <h1>@Model.Name</h1>
+    </div>
+    <div class="page-body">
+        @await Html.PartialAsync("_VendorResourceBooking", Model)
+    </div>
+</div>

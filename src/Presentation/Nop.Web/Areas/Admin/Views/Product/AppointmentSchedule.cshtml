@@ -1,0 +1,293 @@
+@model ProductModel
+@{
+    //page title
+    ViewBag.Title = T("Admin.Catalog.Products.CreateSchedule").Text;
+    //active menu item (system name)
+    Html.SetActiveMenuItemSystemName("Products");
+}
+<form asp-controller="Product" asp-action="Edit" method="post" id="product-form">
+    <div class="content-header clearfix">
+        <h1 class="pull-left">
+            @T("Admin.Catalog.Products.CreateSchedule") - @Model.Name
+            <small>
+                <i class="fa fa-arrow-circle-left"></i>
+                <a asp-action="List">@T("Admin.Catalog.Products.BackToList")</a>
+            </small>
+        </h1>
+        <div class="pull-right">
+            <a asp-action="AppointmentCalendar" asp-route-id="@Model.Id" class="btn bg-purple-active">
+                <i class="fa fa-eye"></i>
+                @T("Admin.Common.Calendar")
+            </a>
+            <button type="button" onclick="javascript:OpenWindow('@Url.RouteUrl("Product", new {SeName = Model.SeName})', 800, 600, true); return false;" class="btn bg-purple">
+                <i class="fa fa-eye"></i>
+                @T("Admin.Common.Preview")
+            </button>
+        </div>
+    </div>
+    <div class="content">
+        <div class="form-horizontal">
+            <div class="column-left">
+                <div id="nav"></div>
+            </div>
+            <div class="column-main">
+                <div class="toolbar">
+                    <span class="toolbar-item">
+                        Scale:
+                        <label for='scale-15min'><input type="radio" value="15min" name="scale" id='scale-15min'>15-Min</label>
+                        <label for='scale-hours'>
+                            <input type="radio" value="hours" name="scale" id='scale-hours' checked="checked">Hours
+                        </label>
+                        <label for='scale-shifts'><input type="radio" value="shifts" name="scale" id='scale-shifts'>Shifts</label>
+                    </span>
+                    <span class="toolbar-item"><label for="business-only"><input type="checkbox" id="business-only">Hide non-business hours</label></span>
+                    <span class="toolbar-item">Slots: <button id="clear">Clear</button> Deletes all free slots this month</span>
+                </div>
+                <div id="scheduler"></div>
+            </div>
+        </div>
+    </div>
+</form>
+
+<script type="text/javascript">
+    var nav = new DayPilot.Navigator("nav");
+    nav.selectMode = "month";
+    nav.showMonths = 2;
+    nav.skipMonths = 1;
+    nav.onTimeRangeSelected = function (args) {
+        //loadEvents(args.start.firstDayOfWeek(), args.start.addDays(7));
+        if (scheduler.visibleStart().getDatePart() <= args.day && args.day < scheduler.visibleEnd()) {
+            scheduler.scrollTo(args.day, "fast");  // just scroll
+        } else {
+            loadEvents(args.day);  // reload and scroll
+        }
+    };
+
+    nav.init();
+
+    var scheduler = new DayPilot.Scheduler("scheduler");
+    scheduler.visible = false; // will be displayed after loading the resources
+    scheduler.scale = "Manual";
+    scheduler.timeline = getTimeline();
+    scheduler.timeHeaders = getTimeHeaders();
+    scheduler.useEventBoxes = "Never";
+    scheduler.eventDeleteHandling = "Update";
+    scheduler.eventClickHandling = "Disabled";
+    scheduler.eventMoveHandling = "Disabled";
+    scheduler.eventResizeHandling = "Disabled";
+    scheduler.allowEventOverlap = false;
+    scheduler.businessBeginsHour = @Model.ProductScheduleModel.BusinessBeginsHour;
+    scheduler.businessEndsHour = @Model.ProductScheduleModel.BusinessEndsHour;
+    scheduler.businessWeekends = true;
+
+    scheduler.onBeforeTimeHeaderRender = function (args) {
+        args.header.html = args.header.html.replace(" AM", "a").replace(" PM", "p");  // shorten the hour header
+    };
+
+    scheduler.onBeforeEventRender = function (args) {
+        switch (args.data.tags.status) {
+            case "Free":
+                args.data.barColor = "green";
+                args.data.deleteDisabled = $('input[name=scale]:checked').val() === "shifts";  // only allow deleting in the more detailed hour scale mode
+                break;
+            case "Waiting":
+                args.data.barColor = "orange";
+                args.data.deleteDisabled = true;
+                break;
+            case "Confirmed":
+                args.data.barColor = "#f41616";  // red
+                args.data.deleteDisabled = true;
+                break;
+        }
+    };
+
+    scheduler.onEventDeleted = function (args) {
+        var params = {
+            id: args.e.id(),
+        };
+        addAntiForgeryToken(params);
+
+        $.ajax({
+            url: "@Url.Action("AppointmentDelete", "Product")",
+            type: "post",
+            data: params
+        })
+            .done(function (result) {
+                console.log("result=", result);
+            scheduler.message("Deleted.");
+        });
+    };
+
+    scheduler.onTimeRangeSelected = function (args) {
+        var dp = scheduler;
+        var scale = $("input[name=scale]:checked").val();
+
+        var params = {
+            start: args.start.toString(),
+            end: args.end.toString(),
+            resourceId: args.resource,
+            scale: scale
+        };
+        addAntiForgeryToken(params);
+
+        $.ajax({
+            url: "@Url.Action("AppointmentCreate", "Product")",
+            type: "post",
+            data: params
+        })
+        .done(function (result) {
+            loadEvents();
+            dp.message(result.responseText);
+        });
+
+        dp.clearSelection();
+    };
+
+    scheduler.init();
+
+    loadResources();
+    loadEvents(DayPilot.Date.today());
+
+    function loadEvents(day) {
+        var from = scheduler.visibleStart();
+        var to = scheduler.visibleEnd();
+        if (day) {
+            from = new DayPilot.Date(day).firstDayOfMonth();
+            to = from.addMonths(1);
+        }
+
+        var params = {
+            start: from.toString(),
+            end: to.toString(),
+            resourceId: @Model.Id
+        };
+        addAntiForgeryToken(params);
+
+        $.ajax({
+            url: "@Url.Action("AppointmentList", "Product")",
+            type: "post",
+            data: params,
+            cache: false,
+        })
+        .done(function (result) {
+            scheduler.timeline = getTimeline(day);
+            scheduler.events.list = result;
+            scheduler.update();
+            scheduler.scrollTo(day, "fast", "left");
+
+            nav.events.list = result;
+            nav.update();
+        })
+        .fail(function (result) {
+            // Error
+        });
+    }
+
+    function loadResources() {
+        var data = [{
+            id: "@Model.Id",
+            name: "@Model.Name",
+        }];
+        console.log(data);
+        scheduler.resources = data;
+        scheduler.visible = true;
+        scheduler.update();
+    }
+
+    function getTimeline(date) {
+        var date = date || DayPilot.Date.today();
+        var start = new DayPilot.Date(date).firstDayOfMonth();
+        var days = start.daysInMonth();
+        var scale = $("input[name=scale]:checked").val();
+        var businessOnly = $("#business-only").prop("checked");
+
+        var morningShiftStarts = @Model.ProductScheduleModel.BusinessBeginsHour;
+        var morningShiftEnds = 13;
+        var afternoonShiftStarts = 14;
+        var afternoonShiftEnds = @Model.ProductScheduleModel.BusinessEndsHour;
+
+        if (!businessOnly) {
+            var morningShiftStarts = 0;
+            var morningShiftEnds = 12;
+            var afternoonShiftStarts = 12;
+            var afternoonShiftEnds = 24;
+        }
+
+        var timeline = [];
+
+        var increaseMorning;  // in hours
+        var increaseAfternoon;  // in hours
+        switch (scale) {
+            case "15min":
+                increaseMorning = 0.25;
+                increaseAfternoon = 0.25;
+                break;
+            case "hours":
+                increaseMorning = 1;
+                increaseAfternoon = 1;
+                break;
+            case "shifts":
+                increaseMorning = morningShiftEnds - morningShiftStarts;
+                increaseAfternoon = afternoonShiftEnds - afternoonShiftStarts;
+                break;
+            default:
+                throw "Invalid scale value";
+        }
+
+        for (var i = 0; i < days; i++) {
+            var day = start.addDays(i);
+
+            for (var x = morningShiftStarts; x < morningShiftEnds; x += increaseMorning) {
+                timeline.push({ start: day.addHours(x), end: day.addHours(x + increaseMorning) });
+            }
+            for (var x = afternoonShiftStarts; x < afternoonShiftEnds; x += increaseAfternoon) {
+                timeline.push({ start: day.addHours(x), end: day.addHours(x + increaseAfternoon) });
+            }
+        }
+
+        return timeline;
+    }
+
+    function getTimeHeaders() {
+        var scale = $('input[name=scale]:checked').val();
+        switch (scale) {
+            case "15min":
+                return [{ groupBy: "Month" }, { groupBy: "Day", format: "dddd d" }, {
+                    groupBy: "Hour",
+                    format: "h tt"
+                }, { groupBy: "Cell", format: "m" }];
+                break;
+            case "hours":
+                return [{ groupBy: "Month" }, { groupBy: "Day", format: "dddd d" }, { groupBy: "Hour", format: "h tt" }];
+                break;
+            case "shifts":
+                return [{ groupBy: "Month" }, { groupBy: "Day", format: "dddd d" }, { groupBy: "Cell", format: "tt" }];
+                break;
+        }
+    }
+
+    $(document).ready(function () {
+        $("#business-only").click(function () {
+            scheduler.timeline = getTimeline();
+            scheduler.update();
+        });
+        $("input[name=scale]").click(function () {
+            scheduler.timeline = getTimeline();
+            scheduler.timeHeaders = getTimeHeaders();
+            scheduler.update();
+        });
+        $("#clear").click(function () {
+            var dp = scheduler;
+            var params = {
+                start: dp.visibleStart(),
+                end: dp.visibleEnd()
+            };
+            $.post("backend_clear.php", JSON.stringify(params), function (data) {
+                dp.message(data.message);
+                loadEvents();
+            });
+        });
+    });
+
+</script>
+

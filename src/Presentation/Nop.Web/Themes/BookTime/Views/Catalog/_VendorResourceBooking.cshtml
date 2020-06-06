@@ -1,0 +1,271 @@
+﻿@model VendorModel
+
+<div id="book-time" class="book-main">
+    <div class="fieldset">
+        <div class="form-fields" id="booking-calendar">
+            <div class="column-left">
+                <div id="navigator"></div>
+            </div>
+            <div class="column-main">
+                <div id="calendar"></div>
+            </div>
+        </div>
+        <div class="form-fields" id="booking-form">
+            <div class="inputs">
+                <label for="txtTimeSlot">@T("Catalog.RequestVendorAppointment.Resource"):</label>
+                <input type="text" id="txtResource" name="txtResource" disabled />
+            </div>
+            <div class="inputs">
+                <label for="txtStatus">@T("Catalog.RequestVendorAppointment.Start"):</label>
+                <input type="text" id="txtStart" name="txtStart" disabled />
+            </div>
+            <div class="inputs">
+                <label for="txtStatus">@T("Catalog.RequestVendorAppointment.End"):</label>
+                <input type="text" id="txtEnd" name="txtEnd" disabled />
+            </div>
+            <input type="hidden" id="resourceId" />
+            <div class="buttons">
+                <button type="submit" name="btnRequestAppointment" id="btnRequestAppointment" class="button-base">
+                    @T("Catalog.RequestVendorAppointment.Confirm")
+                </button>
+                <button type="submit" name="btnBackToCalendar" id="btnBackToCalendar" class="button-base">
+                    @T("Catalog.RequestVendorAppointment.Close")
+                </button>
+            </div>
+        </div>
+        <p class="message" id="rMessage"></p>
+    </div>
+</div>
+
+<script type="text/javascript">
+    var nav = new DayPilot.Navigator("navigator");
+    nav.onTimeRangeSelected = function (args) {
+        var day = args.day;
+
+        if (dp.visibleStart() <= day && day < dp.visibleEnd()) {
+            dp.scrollTo(day, "fast");
+        }
+        else {
+            var start = day.firstDayOfMonth();
+            var days = day.daysInMonth();
+            dp.startDate = start;
+            dp.days = days;
+            dp.update();
+            dp.scrollTo(day, "fast");
+            loadEvents();
+        }
+    };
+
+    nav.init();
+
+    var dp = new DayPilot.Scheduler("calendar");
+    dp.treeEnabled = false;
+    dp.heightSpec = "Max";
+    dp.height = 300;
+    dp.scale = "Hour";
+    dp.startDate = DayPilot.Date.today().firstDayOfMonth();
+    dp.days = DayPilot.Date.today().daysInMonth();
+    dp.cellWidth = 40;
+    dp.eventHeight = 40;
+    dp.durationBarVisible = false;
+    dp.treePreventParentUsage = true;
+
+    dp.onBeforeEventRender = function (args) {
+    };
+
+    dp.onBeforeCellRender = function (args) {
+        if (args.cell.isParent) {
+            return;
+        }
+        if (args.cell.start < new DayPilot.Date()) {  // past
+            return;
+        }
+        if (args.cell.utilization() > 0) {
+            return;
+        }
+        var color = "green";
+        var slotId = args.cell.start.toString("HH:mm");
+        var opacity = 0.5;
+        var text = "";
+        args.cell.html = "<div style='cursor: default; position: absolute; left: 0px; top:0px; right: 0px; bottom: 0px; padding-left: 3px; text-align: center; background-color: " + color + "; color:white; opacity: " + opacity + ";'>" + text + "</div>";
+    };
+
+    dp.timeHeaders = [
+        { groupBy: "Month", format: "MMMM yyyy" },
+        { groupBy: "Day", format: "dddd, MMMM d" },
+        { groupBy: "Hour", format: "h tt" }
+    ];
+
+    dp.businessBeginsHour = 6;
+    dp.businessEndsHour = 23;
+    dp.businessWeekends = true;
+    dp.showNonBusiness = false;
+    dp.allowEventOverlap = false;
+    //dp.cellWidthSpec = "Auto";
+    dp.bubble = new DayPilot.Bubble();
+
+    dp.onTimeRangeSelecting = function (args) {
+        if (args.start < new DayPilot.Date()) {
+            args.right.enabled = true;
+            args.right.html = "You can't create a reservation in the past";
+            args.allowed = false;
+        }
+        else if (args.duration.totalHours() > 2) {
+            args.right.enabled = true;
+            args.right.html = "You can only book up to 2 hours";
+            args.allowed = false;
+        }
+    };
+
+    // event creating
+    // http://api.daypilot.org/daypilot-scheduler-ontimerangeselected/
+    dp.onTimeRangeSelected = function (args) {
+        var params = {
+            vendorId: "@Model.Id",
+            resourceId: args.resource,
+            start: args.start.toString(),
+            end: args.end.toString(),
+        };
+        console.log("args=", args);
+        console.log("params=", params);
+
+        $.ajax({
+            url: "@Url.Action("RequestVendorAppointment", "Catalog")",
+            type: "get",
+            data: params,
+            cache: false
+        })
+        .done(function (response) {
+            console.log("response =", response);
+            if (response.status == false && response.data == 0) {
+                // unauthenticated user, redirect to login page
+                window.location = $("#aLogin").attr("href");
+            }
+            else {
+                DisplaySelectedSlot(response);
+            }
+        })
+        .fail(function (xhr, ajaxOptions, thrownError) {
+            // Error
+            DisplayError(xhr, thrownError);
+        });
+    };
+
+    dp.init();
+
+    var scrollTo = DayPilot.Date.today();
+    if (new DayPilot.Date().getHours() > 12) {
+        scrollTo = scrollTo.addHours(12);
+    }
+    dp.scrollTo(scrollTo);
+
+    loadResources();
+    loadEvents();
+
+    function loadResources() {
+        var url = "@Url.Action("GetResourcesByVendor", "Catalog")" + "?vendorId=@Model.Id";
+        console.log(url);
+        dp.rows.load(url);
+    }
+
+    function loadEvents() {
+        var start = dp.startDate;
+        var end = dp.startDate.addDays(dp.days);
+        var params = {
+            start: start.toString(),
+            end: end.toString(),
+            vendorId: @Model.Id
+        };
+        console.log("params=", params);
+
+        $.ajax({
+            url: "@Url.Action("GetAppointmentsByVendor", "Catalog")",
+            type: "post",
+            data: params,
+            cache: false
+        })
+        .done(function (response) {
+            dp.events.list = response;
+            dp.update();
+        })
+        .fail(function (xhr, ajaxOptions, thrownError) {
+            // Error
+            DisplayError(xhr, thrownError);
+        });
+    }
+</script>
+
+<script type="text/javascript">
+
+    $(document).ready(function () {
+
+        ClearSelectedSlot();
+
+        $("#btnBackToCalendar").click(function () {
+            ClearSelectedSlot();
+            loadEvents();
+            return false;
+        });
+
+        $("#btnRequestAppointment").click(function () {
+            var params = {
+                resourceId: $("#resourceId").val(),
+                start: $("#txtStart").val(),
+                end: $("#txtEnd").val(),
+                vendorId: "@Model.Id",
+            };
+            console.log("params=", params);
+            $.ajax({
+                url: "@Url.Action("SaveVendorAppointment", "Catalog")",
+                type: "post",
+                datatype: "json",
+                data: params,
+                cache: false
+            })
+            .done(function (response) {
+                console.log("response=", response);
+                if (response.status) {
+                    ClearSelectedSlot();
+                    loadEvents();
+                }
+                else {
+                    DisplaySelectedSlot(response);
+                }                
+            })
+            .fail(function (xhr, ajaxOptions, thrownError) {
+                // Error
+                DisplayError(xhr, thrownError);
+            });
+
+            return false;
+        });
+    });
+
+    function DisplaySelectedSlot(response) {
+        $("#booking-calendar").hide();
+        $("#booking-form").show();
+        if (response.status) {
+            $("#resourceId").val(response.data.resource);
+            $("#txtResource").val(response.data.resourceName);
+            $("#txtStart").val(response.data.start);
+            $("#txtEnd").val(response.data.end);
+        }
+        if (response.message) {
+            $("#rMessage").text(response.message);
+        }
+        else {
+            $("#rMessage").text("");
+        }
+    }
+
+    function ClearSelectedSlot() {
+        $("#booking-calendar").show();
+        $("#booking-form").hide();
+        $("#resourceId").val("");
+        $("#rMessage").text("");
+    }
+
+    function DisplayError(response, thrownError) {
+        $("#rMessage").text(thrownError + "\r\n" + response.status + "\r\n" + response.statusText);
+    }
+</script>

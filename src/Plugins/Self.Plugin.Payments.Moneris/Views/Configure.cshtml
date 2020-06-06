@@ -1,0 +1,75 @@
+﻿@model Self.Plugin.Payments.Moneris.Models.ConfigurationModel
+@{
+    Layout = "_ConfigurePlugin";
+}
+
+@await Component.InvokeAsync("StoreScopeConfiguration")
+
+<form asp-controller="PaymentMoneris" asp-action="Configure" method="post">
+    <div class="panel-group">
+        <div class="panel panel-default">
+            <div class="panel-body">
+                <p>@T("Plugins.Payments.Moneris.Instructions")</p>
+                <div class="form-group">
+                    <div class="col-md-3">
+                        <nop-label asp-for="UseSandbox" />
+                    </div>
+                    <div class="col-md-9">
+                        <nop-editor asp-for="UseSandbox" />
+                        <span asp-validation-for="UseSandbox"></span>
+                    </div>
+                </div>
+                <div class="form-group">
+                    <div class="col-md-3">
+                        <nop-label asp-for="StoreId" />
+                    </div>
+                    <div class="col-md-9">
+                        <nop-editor asp-for="StoreId" />
+                        <span asp-validation-for="StoreId"></span>
+                    </div>
+                </div>
+                <div class="form-group">
+                    <div class="col-md-3">
+                        <nop-label asp-for="ApiToken" />
+                    </div>
+                    <div class="col-md-9">
+                        <nop-editor asp-for="ApiToken" />
+                        <span asp-validation-for="ApiToken"></span>
+                    </div>
+                </div>
+                <div class="form-group">
+                    <div class="col-md-3">
+                        <nop-label asp-for="ProcessingCountryCode" />
+                    </div>
+                    <div class="col-md-9">
+                        <nop-editor asp-for="ProcessingCountryCode" />
+                        <span asp-validation-for="ProcessingCountryCode"></span>
+                    </div>
+                </div>
+                <div class="form-group">
+                    <div class="col-md-3">
+                        <nop-label asp-for="DynamicDescriptor" />
+                    </div>
+                    <div class="col-md-9">
+                        <nop-editor asp-for="DynamicDescriptor" />
+                        <span asp-validation-for="DynamicDescriptor"></span>
+                    </div>
+                </div>
+                <div class="form-group">
+                    <div class="col-md-3">
+                        <nop-label asp-for="Crypt" />
+                    </div>
+                    <div class="col-md-9">
+                        <nop-editor asp-for="Crypt" />
+                        <span asp-validation-for="Crypt"></span>
+                    </div>
+                </div>
+                <div class="form-group">
+                    <div class="col-md-9 col-md-offset-3">
+                        <input type="submit" name="save" class="btn bg-primary" value="@T("Admin.Common.Save")" />
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</form>

@@ -1,0 +1,74 @@
+﻿@model Nop.Web.Models.Self.VendorAppointmentInfoModel
+
+<div class="fieldset">
+    <div class="form-fields" id="booking-form">
+        <div class="inputs">
+            <label for="txtTimeSlot">@T("Catalog.RequestVendorAppointment.Resource"):</label>
+            <input type="text" id="txtResource" name="txtResource" value="@Model.resourceName" disabled />
+        </div>
+        <div class="inputs">
+            <label for="txtStatus">@T("Catalog.RequestVendorAppointment.Start"):</label>
+            <input type="text" id="txtStart" name="txtStart" value="@Model.start" disabled />
+        </div>
+        <div class="inputs">
+            <label for="txtStatus">@T("Catalog.RequestVendorAppointment.End"):</label>
+            <input type="text" id="txtEnd" name="txtEnd" value="@Model.end" disabled />
+        </div>
+        <input type="hidden" id="resourceId" value="@Model.resource" />
+        <input type="hidden" id="vendorId" value="@Model.vendorId" />
+        <div class="buttons">
+            <button type="submit" name="btnRequestAppointment" id="btnRequestAppointment" class="button-base">
+                @T("Catalog.RequestVendorAppointment.Confirm")
+            </button>
+            <button type="submit" name="btnBackToCalendar" id="btnBackToCalendar" class="button-base">
+                @T("Catalog.RequestVendorAppointment.Close")
+            </button>
+        </div>
+    </div>
+    <p class="message" id="rMessage"></p>
+</div>
+
+<script type="text/javascript">
+
+    $(document).ready(function () {
+
+        $("#btnBackToCalendar").click(function () {
+            console.log("button clicked.");
+            loadEvents();
+            return false;
+        });
+
+        $("#btnRequestAppointment").click(function () {
+            var params = {
+                id: $("#resourceId").val(),
+                start: $("#txtStart").val(),
+                end: $("#txtEnd").val(),
+                vendorId: $("#vendorId").val(),
+            };
+            console.log("params=", params);
+            $.ajax({
+                url: "@Url.Action("SaveVendorAppointment", "Catalog")",
+                type: "post",
+                datatype: "json",
+                data: params,
+                cache: false
+            })
+            .done(function (response) {
+                console.log("response=", response);
+                if (response.status) {
+                    loadEvents();
+                }
+            })
+            .fail(function (xhr, ajaxOptions, thrownError) {
+                // Error
+                DisplayError(xhr, thrownError);
+            });
+
+            return false;
+        });
+    });
+
+    function DisplayError(response, thrownError) {
+        $("#rMessage").text(thrownError + "\r\n" + response.status + "\r\n" + response.statusText);
+    }
+</script>

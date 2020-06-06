@@ -1,0 +1,48 @@
+﻿@model ProductOverviewModel
+@using Nop.Core
+@using Nop.Core.Domain.Catalog
+@using Nop.Core.Domain.Orders
+@using Nop.Core.Domain.Tax
+@inject CatalogSettings catalogSettings
+@inject IWorkContext workContext
+@{
+    var addtowishlistlink = Url.RouteUrl("AddProductToCart-Catalog", new { productId = Model.Id, shoppingCartTypeId = (int)ShoppingCartType.Wishlist, quantity = 1 });
+    var addtocomparelink = Url.RouteUrl("AddProductToCompare", new { productId = Model.Id });
+}
+<div class="product-item" data-productid="@Model.Id">
+    <div class="picture">
+        <a href="@Url.RouteUrl("Product", new { SeName = Model.SeName })" title="@Model.DefaultPictureModel.Title">
+            <img alt="@Model.DefaultPictureModel.AlternateText" src="@Model.DefaultPictureModel.ImageUrl" title="@Model.DefaultPictureModel.Title" />
+        </a>
+    </div>
+    <div class="details">
+        <h2 class="product-title">
+            <a href="@Url.RouteUrl("Product", new {SeName = Model.SeName})">@Model.Name</a>
+        </h2>
+        @if (Model.ReviewOverviewModel.AllowCustomerReviews)
+        {
+            var ratingPercent = 0;
+            if (Model.ReviewOverviewModel.TotalReviews != 0)
+            {
+                ratingPercent = ((Model.ReviewOverviewModel.RatingSum*100)/Model.ReviewOverviewModel.TotalReviews)/5;
+            }
+            <div class="product-rating-box" title="@string.Format(T("Reviews.TotalReviews").Text, Model.ReviewOverviewModel.TotalReviews)">
+                <div class="rating">
+                    <div style="width: @(ratingPercent)%">
+                    </div>
+                </div>
+            </div>
+        }
+        <div class="description">
+            @Html.Raw(Model.ShortDescription)
+        </div>
+        <div class="add-info">
+            @await Component.InvokeAsync("Widget", new { widgetZone = PublicWidgetZones.ProductBoxAddinfoBefore, additionalData = Model })
+            @await Component.InvokeAsync("Widget", new { widgetZone = PublicWidgetZones.ProductBoxAddinfoMiddle, additionalData = Model })
+            <div class="buttons">
+                <a href="@Url.RouteUrl("Product", new {SeName = Model.SeName})#book-time" class="button-2 book-button product-box-add-to-cart-button">@T("Product.BookTime")</a>
+            </div>
+            @await Component.InvokeAsync("Widget", new { widgetZone = PublicWidgetZones.ProductBoxAddinfoAfter, additionalData = Model })
+        </div>
+    </div>
+</div>

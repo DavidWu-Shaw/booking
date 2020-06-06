@@ -1,0 +1,36 @@
+﻿@model ProductModel
+
+@{
+    const string hideInfoBlockAttributeName = "ProductPage.HideInfoBlock";
+    var hideInfoBlock = genericAttributeService.GetAttribute<bool>(workContext.CurrentCustomer, hideInfoBlockAttributeName);
+
+    const string hidePicturesBlockAttributeName = "ProductPage.HidePicturesBlock";
+    var hidePicturesBlock = genericAttributeService.GetAttribute<bool>(workContext.CurrentCustomer, hidePicturesBlockAttributeName, defaultValue: true);
+
+    const string hideSeoBlockAttributeName = "ProductPage.HideSEOBlock";
+    var hideSeoBlock = genericAttributeService.GetAttribute<bool>(workContext.CurrentCustomer, hideSeoBlockAttributeName, defaultValue: true);
+
+    const string hideRelatedProductsBlockAttributeName = "ProductPage.HideRelatedProductsBlock";
+    var hideRelatedProductsBlock = genericAttributeService.GetAttribute<bool>(workContext.CurrentCustomer, hideRelatedProductsBlockAttributeName, defaultValue: true);
+}
+<div asp-validation-summary="All"></div>
+<input asp-for="Id" type="hidden" />
+
+<div class="content">
+    <div class="form-horizontal">
+        <div class="row">
+            <div class="col-md-12 clearfix">
+                <div class="pull-left">
+                    @await Component.InvokeAsync("SettingMode", new { modeName = "product-advanced-mode" })
+                </div>
+            </div>
+        </div>
+        <nop-panels id="product-panels">
+            <nop-panel asp-name="product-info" asp-icon="fa fa-info" asp-title="@T("Admin.Catalog.Products.Info")" asp-hide-block-attribute-name="@hideInfoBlockAttributeName" asp-hide="@hideInfoBlock" asp-advanced="false">@await Html.PartialAsync("_CreateOrUpdate.Info", Model)</nop-panel>
+            <nop-panel asp-name="product-pictures" asp-icon="fa fa-picture-o" asp-title="@T("Admin.Catalog.Products.Pictures")" asp-hide-block-attribute-name="@hidePicturesBlockAttributeName" asp-hide="@hidePicturesBlock" asp-advanced="false">@await Html.PartialAsync("_CreateOrUpdate.Pictures", Model)</nop-panel>
+            <nop-panel asp-name="product-seo" asp-icon="fa fa-search-plus" asp-title="@T("Admin.Common.SEO")" asp-hide-block-attribute-name="@hideSeoBlockAttributeName" asp-hide="@hideSeoBlock" asp-advanced="false">@await Html.PartialAsync("_CreateOrUpdate.SEO", Model)</nop-panel>
+            <nop-panel asp-name="product-related-products" asp-icon="fa fa-object-group" asp-title="@T("Admin.Catalog.Products.RelatedProducts")" asp-hide-block-attribute-name="@hideRelatedProductsBlockAttributeName" asp-hide="@hideRelatedProductsBlock" asp-advanced="false">@await Html.PartialAsync("_CreateOrUpdate.RelatedProducts", Model)</nop-panel>
+            @await Component.InvokeAsync("AdminWidget", new { widgetZone = AdminWidgetZones.ProductDetailsBlock, additionalData = Model })
+        </nop-panels>
+    </div>
+</div>
